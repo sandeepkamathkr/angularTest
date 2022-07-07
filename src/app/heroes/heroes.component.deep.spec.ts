@@ -2,11 +2,23 @@ import {ComponentFixture, TestBed} from "@angular/core/testing";
 import {HeroService} from "../hero.service";
 import {of} from "rxjs";
 import {HeroesComponent} from "./heroes.component";
-import {NO_ERRORS_SCHEMA} from "@angular/core";
 import {By} from "@angular/platform-browser";
 import {HeroComponent} from "../hero/hero.component";
-import {contentTemplate} from "@angular-devkit/schematics";
+import {Directive, Input} from "@angular/core";
 
+@Directive({
+  selector: '[routerLink]',
+  host: {'(click)' : 'onClick()'}
+})
+export class RouterLinkDirectiveStub{
+
+  @Input('routerLink') linkParams: any;
+  navigatedTo: any = null;
+
+  onClick() {
+    this.navigatedTo = this.linkParams;
+  }
+}
 describe('HeroesComponent (Deep tests)', () => {
   let fixture: ComponentFixture<HeroesComponent>
   let mockHeroService;
@@ -22,12 +34,12 @@ describe('HeroesComponent (Deep tests)', () => {
     TestBed.configureTestingModule({
       declarations: [
         HeroesComponent,
-        HeroComponent
+        HeroComponent,
+        RouterLinkDirectiveStub
       ],
       providers: [
         {provide: HeroService, useValue: mockHeroService}
-      ],
-      schemas: [NO_ERRORS_SCHEMA]
+      ]
     })
     fixture = TestBed.createComponent(HeroesComponent);
   })
@@ -41,7 +53,7 @@ describe('HeroesComponent (Deep tests)', () => {
     const heroComponentDEs = fixture.debugElement.queryAll(By.directive(HeroComponent));
     expect(heroComponentDEs.length).toEqual(3);
 
-    for(let i=0;i < heroComponentDEs.length; i++){
+    for (let i = 0; i < heroComponentDEs.length; i++) {
       expect(heroComponentDEs[i].componentInstance.hero.name).toEqual(HEROES[i].name);
     }
   });
@@ -56,7 +68,10 @@ describe('HeroesComponent (Deep tests)', () => {
 
     const heroComponentDEs = fixture.debugElement.queryAll(By.directive(HeroComponent));
     heroComponentDEs[0].query(By.css('button'))
-      .triggerEventHandler('click', {stopPropagation: () =>{}});
+      .triggerEventHandler('click', {
+        stopPropagation: () => {
+        }
+      });
 
     expect(fixture.componentInstance.delete).toHaveBeenCalledWith(HEROES[0]);
 
@@ -89,10 +104,27 @@ describe('HeroesComponent (Deep tests)', () => {
     const addButton = fixture.debugElement.queryAll(By.css('button'))[0];
 
     inputElement.value = name;
-    addButton.triggerEventHandler('click',null);
+    addButton.triggerEventHandler('click', null);
     fixture.detectChanges();
 
     expect(fixture.debugElement.query(By.css('ul')).nativeElement.textContent).toContain(name);
 
+  });
+
+  it('should have the correct route for the first hero', function () {
+    mockHeroService.getHeroes.and.returnValue(of(HEROES));
+
+    // run ngOnInit
+    fixture.detectChanges();
+
+    const heroComponents = fixture.debugElement.queryAll(By.directive(HeroComponent));
+
+    let routerLink = heroComponents[0]
+      .query(By.directive(RouterLinkDirectiveStub))
+      .injector.get(RouterLinkDirectiveStub);
+
+    heroComponents[0].query(By.css('a')).triggerEventHandler('click',null);
+
+    expect(routerLink.navigatedTo).toBe('/detail/1');
   });
 })
